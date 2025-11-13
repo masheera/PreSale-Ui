@@ -94,5 +94,8 @@ export const NotificationAPI = {
   markRead: (id) => api.post(URLS.notifMarkRead(id)).then((r) => r.data),
 };
 
+
+
+
 // Optional: export BASE_URL to build absolute links if needed elsewhere
 export { BASE_URL };

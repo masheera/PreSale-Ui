@@ -2,9 +2,11 @@
 import axios from "axios";
 
 // Single source of truth for your API root (always ends with a trailing slash)
-export const BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
-).replace(/\/?$/, "/");
+// export const BASE_URL = (
+//   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
+// ).replace(/\/?$/, "/");
+
+export const BASE_URL = "/api/";
 
 
 const axiosInstance = axios.create({
@@ -69,7 +71,7 @@ axiosInstance.interceptors.response.use(
       isRefreshing = true;
       try {
         // use raw axios to avoid interceptor recursion
-        const resp = await axios.post(`${BASE_URL}auth/token/refresh/`, {
+        const resp = await axios.post(`${BASE_URL}accounts/token/refresh/`, {
           refresh,
         });
         const newAccess = resp?.data?.access;

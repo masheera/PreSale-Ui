@@ -2,25 +2,34 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MasterLayout from "./layouts/MasterLayout";
-import ProjectList from "./pages/ProjectsList"
-import SetupPage from "./pages/Setup";
-import Login from "./pages/Login";
+import ProjectsList from "./pages/Setup/ProjectsList";
+import Setup from "./pages/Setup/Setup";
+import Auth from "./features/auth/Auth";
+import Dashboard from "./pages/Dashboard/Dashboard";
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          {/* Public Route */}
+          <Route path="/login" element={<Auth />} />
 
+          {/* Protected Routes with MasterLayout */}
           <Route element={<ProtectedRoute />}>
             <Route element={<MasterLayout />}>
-              <Route path="/sales/projects" element={<ProjectList />} />
-              <Route path="/setup" element={<SetupPage />} />
-              <Route
-                path="*"
-                element={<Navigate to="/sales/projects" replace />}
-              />
+              {/* Dashboard */}
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              
+              {/* Projects */}
+              <Route path="/sales/projects" element={<ProjectsList />} />
+              
+              {/* Setup */}
+              <Route path="/setup" element={<Setup />} />
+              
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Route>
         </Routes>
