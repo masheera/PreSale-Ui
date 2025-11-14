@@ -10,7 +10,7 @@ import SetupPage from "./pages/Setup";
 import Login from "./pages/Login";
 import LeadStaticPage from "./pages/LeadStaticPage";
 import InventoryCreate from "./pages/InventoryCreate";
-
+import InventoryList from "./pages/InventoryList";
 export default function App() {
   return (
     <AuthProvider>
@@ -24,11 +24,16 @@ export default function App() {
             <Route element={<MasterLayout />}>
               <Route path="/sales/projects" element={<ProjectList />} />
               <Route path="/setup" element={<SetupPage />} />
+
+              {/* SalePerson View */}
               <Route path="/sales/leads" element={<SalesLeadsList />} />
               <Route path="/Sale-Add-Lead" element={<SaleAddLead />} />
               <Route path="/Lead-static-Lead" element={<LeadStaticPage />} />
+
+              {/* Admin View */}
               <Route path="/inventory/new" element={<InventoryCreate />} />
-              
+              <Route path="/inventory/list" element={<InventoryList />} />
+
               <Route
                 path="*"
                 element={<Navigate to="/sales/projects" replace />}

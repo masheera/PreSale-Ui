@@ -35,6 +35,10 @@ export default function SalesSubnav({
     if (key === "master-setup") {
       navigate("/sales/projects");
     }
+
+    if (key === "inventory") {
+      navigate("/inventory/list");
+    }
     // Example extras you can enable:
     // else if (key === "dashboard") navigate("/sales/dashboard");
     // else if (key === "inventory") navigate("/sales/inventory");
