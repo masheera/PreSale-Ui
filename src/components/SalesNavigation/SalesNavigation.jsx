@@ -15,10 +15,11 @@ export default function SalesNavigation() {
 
   // Secondary navigation items
   const navigationItems = [
-    { id: "dashboard", label: "Dashboard", route: "/sales/dashboard" },
-    { id: "master-setup", label: "Master Setup", route: "/sales/projects" },
+    { id: "dashboard", label: "Dashboard", route: "/dashboard" },
+    { id: "master-setup", label: "Master Setup", route: "/setup" },
     { id: "inventory", label: "Inventory Tracking", route: "/sales/inventory" },
-    { id: "lead-sources", label: "Lead Sources Setup", route: "/sales/lead-sources" },
+    { id: "lead-setup", label: "Lead Setup", route: "/lead-setup" },
+    { id: "leads", label: "Leads", route: "/leads" },
     { id: "sales-executive", label: "Sales Executive Setup", route: "/sales/executives" },
     { id: "cost-quotation", label: "Cost Sheet Quotation Setup", route: "/sales/quotations" },
     { id: "document-setup", label: "Document Setup", route: "/sales/documents" },

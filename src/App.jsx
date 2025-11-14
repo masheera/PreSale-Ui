@@ -4,8 +4,12 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import MasterLayout from "./layouts/MasterLayout";
 import ProjectsList from "./pages/Setup/ProjectsList";
 import Setup from "./pages/Setup/Setup";
+import LeadSetup from "./pages/LeadSetup/LeadSetup";
 import Auth from "./features/auth/Auth";
 import Dashboard from "./pages/Dashboard/Dashboard";
+import LeadsList from "./pages/PreSalesCRM/Leads/LeadsList";
+import LeadForm from "./pages/PreSalesCRM/Leads/LeadForm";
+import LeadDetails from "./pages/PreSalesCRM/Leads/LeadDetails";
 
 export default function App() {
   return (
@@ -27,6 +31,15 @@ export default function App() {
               
               {/* Setup */}
               <Route path="/setup" element={<Setup />} />
+              
+              {/* Lead Setup */}
+              <Route path="/lead-setup" element={<LeadSetup />} />
+              
+              {/* Leads - PreSales CRM */}
+              <Route path="/leads" element={<LeadsList />} />
+              <Route path="/leads/new" element={<LeadForm />} />
+              <Route path="/leads/:id" element={<LeadDetails />} />
+              <Route path="/leads/:id/edit" element={<LeadForm />} />
               
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
