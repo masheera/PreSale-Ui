@@ -335,12 +335,13 @@ const SaleAddLead = ({ handleLeadSubmit }) => {
     description: true,
   });
 
-  // dynamic data
   const [projects, setProjects] = useState([]);
   const [masters, setMasters] = useState(null);
   const [loadingMasters, setLoadingMasters] = useState(false);
 
-  // ------- load my-scope projects on mount -------
+  const [channelPartners, setChannelPartners] = useState([]);
+  const [loadingCP, setLoadingCP] = useState(false);
+
   useEffect(() => {
     SetupAPI.myScope()
       .then((data) => {
@@ -354,7 +355,6 @@ const SaleAddLead = ({ handleLeadSubmit }) => {
       });
   }, []);
 
-  // ------- when project changes, fetch lead masters -------
   useEffect(() => {
     if (!form.project_id) {
       setMasters(null);
@@ -375,12 +375,86 @@ const SaleAddLead = ({ handleLeadSubmit }) => {
       .finally(() => setLoadingMasters(false));
   }, [form.project_id]);
 
+  // ------- when source / sub-source changes, fetch Channel Partners -------
+  useEffect(() => {
+    const sourceId = form.lead_source_id;
+    const subSourceId = form.lead_sub_source_id;
+
+    // nothing selected -> clear list
+    if (!sourceId && !subSourceId) {
+      setChannelPartners([]);
+      return;
+    }
+
+    setLoadingCP(true);
+
+    const params = subSourceId
+      ? { sub_source_id: subSourceId }
+      : { source_id: sourceId };
+
+    api
+      .get(URLS.channelPartnersBySource, { params })
+      .then((res) => {
+        setChannelPartners(res.data || []);
+      })
+      .catch((err) => {
+        console.error("Failed to load channel partners", err);
+        showToast("Failed to load channel partners", "error");
+        setChannelPartners([]);
+      })
+      .finally(() => setLoadingCP(false));
+  }, [form.lead_source_id, form.lead_sub_source_id]);
+
+
+  useEffect(() => {
+    const sourceId = form.lead_source_id;
+    const subSourceId = form.lead_sub_source_id;
+
+    // nothing selected -> clear list
+    if (!sourceId && !subSourceId) {
+      setChannelPartners([]);
+      return;
+    }
+
+    setLoadingCP(true);
+
+    const params = subSourceId
+      ? { sub_source_id: subSourceId }
+      : { source_id: sourceId };
+
+    api
+      .get(URLS.channelPartnersBySource, { params })
+      .then((res) => {
+        setChannelPartners(res.data || []);
+      })
+      .catch((err) => {
+        console.error("Failed to load channel partners", err);
+        setChannelPartners([]);
+        showToast("Failed to load channel partners", "error");
+      })
+      .finally(() => setLoadingCP(false));
+  }, [form.lead_source_id, form.lead_sub_source_id]);
+
   const toggleGroup = (groupKey) => {
     setOpenGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }));
   };
 
   const handleChange = (name, value) => {
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
+
+      // When main source changes: reset sub-source + assign_to
+      if (name === "lead_source_id") {
+        next.lead_sub_source_id = "";
+        next.assign_to_id = "";
+      }
+
+      if (name === "lead_sub_source_id") {
+        next.assign_to_id = "";
+      }
+
+      return next;
+    });
   };
 
   const isFieldHidden = (field) =>
@@ -398,98 +472,114 @@ const SaleAddLead = ({ handleLeadSubmit }) => {
     });
 
   // map masters/projects to select options
-  const getOptionsForField = (field) => {
-    const toOptions = (items) =>
-      (items || []).map((item) => ({
-        value: item.id,
-        label: item.name || item.label || item.title || `#${item.id}`,
-      }));
+const getOptionsForField = (field) => {
+  const toOptions = (items) =>
+    (items || []).map((item) => ({
+      value: item.id,
+      label: item.name || item.label || item.title || `#${item.id}`,
+    }));
 
-    // Project select uses my-scope projects
-    if (field.name === "project_id") {
-      return (projects || []).map((p) => ({
-        value: p.id,
-        label: p.name || p.project_name || p.title || `Project #${p.id}`,
-      }));
+  // Project select uses my-scope projects
+  if (field.name === "project_id") {
+    return (projects || []).map((p) => ({
+      value: p.id,
+      label: p.name || p.project_name || p.title || `Project #${p.id}`,
+    }));
+  }
+
+  if (!masters) {
+    if (field.options && field.options.length) return field.options;
+    return [];
+  }
+
+  switch (field.name) {
+    case "lead_classification_id":
+      return toOptions(masters.classifications);
+
+    case "lead_subclass_id": {
+      const selectedId = form.lead_classification_id
+        ? String(form.lead_classification_id)
+        : null;
+      const root = (masters.classifications || []).find(
+        (c) => String(c.id) === selectedId
+      );
+      return toOptions(root?.children || root?.subclasses);
     }
 
-    if (!masters) {
+    case "lead_source_id":
+      return toOptions(masters.sources);
+
+    case "lead_sub_source_id": {
+      const selectedId = form.lead_source_id
+        ? String(form.lead_source_id)
+        : null;
+      const root = (masters.sources || []).find(
+        (s) => String(s.id) === selectedId
+      );
+      return toOptions(root?.children || root?.sub_sources);
+    }
+
+    case "status_id":
+      return toOptions(masters.statuses);
+
+    case "sub_status_id": {
+      const selectedId = form.status_id ? String(form.status_id) : null;
+      const st = (masters.statuses || []).find(
+        (s) => String(s.id) === selectedId
+      );
+      return toOptions(st?.sub_statuses);
+    }
+
+    case "purpose_id":
+      return toOptions(masters.purposes);
+
+    case "offering_type":
+      return toOptions(masters.offering_types);
+
+    case "lead_owner_id":
+      // Owner = normal assign_users list
+      return (masters.assign_users || []).map((u) => ({
+        value: u.id,
+        label: u.name || u.username,
+      }));
+
+    case "assign_to_id":
+      // 👉 If CP list available, use it for assign_to
+      if (channelPartners && channelPartners.length > 0) {
+        return channelPartners.map((cp) => ({
+          // ideally backend adds cp.user_id; fallback to cp.id for now
+          value: cp.user_id ?? cp.id,
+          label: cp.agency_name || cp.contact_person_name || `CP #${cp.id}`,
+        }));
+      }
+      // otherwise fallback to normal users
+      return (masters.assign_users || []).map((u) => ({
+        value: u.id,
+        label: u.name || u.username,
+      }));
+
+    default: {
       if (field.options && field.options.length) return field.options;
+
+      if (field.optionsFrom) {
+        const src = resolvePathFromSetup(
+          { masters, projects },
+          field.optionsFrom
+        );
+        if (Array.isArray(src)) {
+          const valueKey = field.valueKey || "id";
+          const labelKey = field.labelKey || "name";
+          return src.map((item) => ({
+            value: item[valueKey],
+            label: item[labelKey],
+          }));
+        }
+      }
       return [];
     }
+  }
+};
 
-    switch (field.name) {
-      case "lead_classification_id":
-        return toOptions(masters.classifications);
-
-      case "lead_subclass_id": {
-        const selectedId = form.lead_classification_id
-          ? String(form.lead_classification_id)
-          : null;
-        const root = (masters.classifications || []).find(
-          (c) => String(c.id) === selectedId
-        );
-        return toOptions(root?.children || root?.subclasses);
-      }
-
-      case "lead_source_id":
-        return toOptions(masters.sources);
-
-      case "lead_sub_source_id": {
-        const selectedId = form.lead_source_id
-          ? String(form.lead_source_id)
-          : null;
-        const root = (masters.sources || []).find(
-          (s) => String(s.id) === selectedId
-        );
-        return toOptions(root?.children || root?.sub_sources);
-      }
-
-      case "status_id":
-        return toOptions(masters.statuses);
-
-      case "sub_status_id": {
-        const selectedId = form.status_id ? String(form.status_id) : null;
-        const st = (masters.statuses || []).find(
-          (s) => String(s.id) === selectedId
-        );
-        return toOptions(st?.sub_statuses);
-      }
-
-      case "purpose_id":
-        return toOptions(masters.purposes);
-
-      case "offering_type":
-        return toOptions(masters.offering_types);
-
-      case "lead_owner_id":
-      case "assign_to_id":
-        return (masters.assign_users || []).map((u) => ({
-          value: u.id,
-          label: u.name || u.username,
-        }));
-
-      default: {
-        if (field.options && field.options.length) return field.options;
-
-        if (field.optionsFrom) {
-          const src = resolvePathFromSetup(
-            { masters, projects },
-            field.optionsFrom
-          );
-          if (Array.isArray(src)) {
-            const valueKey = field.valueKey || "id";
-            const labelKey = field.labelKey || "name";
-            return src.map((item) => ({
-              value: item[valueKey],
-              label: item[labelKey],
-            }));
-          }
-        }
-        return [];
-      }
-    }
-  };
 
   const buildRowsForSection = (sectionName) => {
     const fields = FIELDS.filter((f) => f.section === sectionName);
@@ -542,105 +632,191 @@ const SaleAddLead = ({ handleLeadSubmit }) => {
     return payload;
   };
 
-const onSubmit = async (e) => {
-  e.preventDefault();
-  if (!validateRequired()) return;
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateRequired()) return;
 
-  const normalized = buildPayload();
+    const normalized = buildPayload();
 
-  if (!normalized.project_id) {
-    showToast("Please select a project", "error");
-    return;
-  }
-
-  // ✅ Backend ab sirf `project` expect karta hai
-  const leadPayload = {
-    project: normalized.project_id, // 👈 IMPORTANT CHANGE
-
-    first_name: normalized.first_name || null,
-    last_name: normalized.last_name || null,
-
-    email: normalized.email,
-    mobile_number: normalized.mobile_number,
-    tel_res: normalized.tel_res,
-    tel_office: normalized.tel_office,
-
-    company: normalized.company,
-    budget: normalized.budget,
-    annual_income: normalized.annual_income,
-
-    classification: normalized.lead_classification_id,
-    sub_classification: normalized.lead_subclass_id,
-    source: normalized.lead_source_id,
-    sub_source: normalized.lead_sub_source_id,
-    status: normalized.status_id,
-    sub_status: normalized.sub_status_id,
-    purpose: normalized.purpose_id,
-
-    current_owner: normalized.lead_owner_id || null,
-    assign_to: normalized.assign_to_id || null,
-
-    offering_types:
-      normalized.offering_type != null && normalized.offering_type !== ""
-        ? [normalized.offering_type]
-        : [],
-
-    address: {
-      flat_or_building: normalized.flat_no || "",
-      area: normalized.area || "",
-      pincode: normalized.pin_code || "",
-      city: normalized.city || "",
-      state: normalized.state || "",
-      country: normalized.country || "",
-      description: normalized.description || "",
-    },
-  };
-
-  const body = {
-    lead: leadPayload,
-    first_update: {
-      title: "Lead created",
-      info: `${normalized.first_name || ""} ${
-        normalized.last_name || ""
-      }`.trim(),
-    },
-  };
-
-  try {
-    const res = await api.post(URLS.salesLeadBundleCreate, body);
-    showToast("Lead saved successfully", "success");
-
-    if (typeof handleLeadSubmit === "function") {
-      handleLeadSubmit(res.data);
+    if (!normalized.project_id) {
+      showToast("Please select a project", "error");
+      return;
     }
 
-    setForm(buildInitialFormState());
-    setMasters(null);
-  } catch (err) {
-    console.error("Failed to save lead", err);
+    // ✅ Backend ab sirf `project` expect karta hai
+    const leadPayload = {
+      project: normalized.project_id, // 👈 IMPORTANT CHANGE
 
-    let msg = "Failed to save lead. Please check the data.";
-    const data = err?.response?.data;
-    if (data) {
-      if (typeof data === "string") msg = data;
-      else if (data.detail) msg = data.detail;
-      else if (data.lead && typeof data.lead === "object") {
-        const firstKey = Object.keys(data.lead)[0];
-        const firstVal = data.lead[firstKey];
-        msg = Array.isArray(firstVal) ? firstVal.join(" ") : String(firstVal);
+      first_name: normalized.first_name || null,
+      last_name: normalized.last_name || null,
+
+      email: normalized.email,
+      mobile_number: normalized.mobile_number,
+      tel_res: normalized.tel_res,
+      tel_office: normalized.tel_office,
+
+      company: normalized.company,
+      budget: normalized.budget,
+      annual_income: normalized.annual_income,
+
+      classification: normalized.lead_classification_id,
+      sub_classification: normalized.lead_subclass_id,
+      source: normalized.lead_source_id,
+      sub_source: normalized.lead_sub_source_id,
+      status: normalized.status_id,
+      sub_status: normalized.sub_status_id,
+      purpose: normalized.purpose_id,
+
+      current_owner: normalized.lead_owner_id || null,
+      assign_to: normalized.assign_to_id || null,
+
+      offering_types:
+        normalized.offering_type != null && normalized.offering_type !== ""
+          ? [normalized.offering_type]
+          : [],
+
+      address: {
+        flat_or_building: normalized.flat_no || "",
+        area: normalized.area || "",
+        pincode: normalized.pin_code || "",
+        city: normalized.city || "",
+        state: normalized.state || "",
+        country: normalized.country || "",
+        description: normalized.description || "",
+      },
+    };
+
+    const body = {
+      lead: leadPayload,
+      first_update: {
+        title: "Lead created",
+        info: `${normalized.first_name || ""} ${
+          normalized.last_name || ""
+        }`.trim(),
+      },
+    };
+
+    try {
+      const res = await api.post(URLS.salesLeadBundleCreate, body);
+      showToast("Lead saved successfully", "success");
+
+      if (typeof handleLeadSubmit === "function") {
+        handleLeadSubmit(res.data);
       }
+
+      setForm(buildInitialFormState());
+      setMasters(null);
+    } catch (err) {
+      console.error("Failed to save lead", err);
+
+      let msg = "Failed to save lead. Please check the data.";
+      const data = err?.response?.data;
+      if (data) {
+        if (typeof data === "string") msg = data;
+        else if (data.detail) msg = data.detail;
+        else if (data.lead && typeof data.lead === "object") {
+          const firstKey = Object.keys(data.lead)[0];
+          const firstVal = data.lead[firstKey];
+          msg = Array.isArray(firstVal) ? firstVal.join(" ") : String(firstVal);
+        }
+      }
+
+      showToast(msg, "error");
     }
-
-    showToast(msg, "error");
-  }
-};
-
-
+  };
 
   const handleCancel = () => {
     setForm(buildInitialFormState());
     setMasters(null);
   };
+
+  // const renderField = (field) => {
+  //   const id = `${SECTION_KEY}_${field.name}`;
+  //   const disabled = isFieldDisabled(field);
+  //   const baseInputClass =
+  //     "form-input" + (disabled ? " form-input-disabled" : "");
+  //   const label = (
+  //     <label htmlFor={id} className="form-label">
+  //       {field.label}
+  //       {field.required && <span className="required">*</span>}
+  //     </label>
+  //   );
+
+  //   if (field.type === "textarea") {
+  //     return (
+  //       <div
+  //         key={field.name}
+  //         className={field.span === 3 ? "form-field-full" : "form-field"}
+  //       >
+  //         {label}
+  //         <textarea
+  //           id={id}
+  //           className="form-textarea"
+  //           value={form[field.name] || ""}
+  //           onChange={(e) => handleChange(field.name, e.target.value)}
+  //           disabled={disabled}
+  //         />
+  //       </div>
+  //     );
+  //   }
+
+  //   if (field.type === "select") {
+  //     const options = getOptionsForField(field);
+  //     return (
+  //       <div
+  //         key={field.name}
+  //         className={field.span === 3 ? "form-field-full" : "form-field"}
+  //       >
+  //         {label}
+  //         <select
+  //           id={id}
+  //           className={baseInputClass}
+  //           value={form[field.name] || ""}
+  //           onChange={(e) => handleChange(field.name, e.target.value)}
+  //           disabled={
+  //             disabled ||
+  //             (field.name !== "project_id" && !masters && loadingMasters) ||
+  //             (field.name === "cp_user_id" && loadingCP)
+  //           }
+  //         >
+  //           <option value="">
+  //             {field.name === "project_id"
+  //               ? "Select project"
+  //               : field.name === "cp_user_id" && loadingCP
+  //               ? "Loading..."
+  //               : loadingMasters
+  //               ? "Loading..."
+  //               : "Select"}
+  //           </option>
+
+  //           {options.map((opt) => (
+  //             <option key={String(opt.value)} value={opt.value}>
+  //               {opt.label}
+  //             </option>
+  //           ))}
+  //         </select>
+  //       </div>
+  //     );
+  //   }
+
+  //   // text / number / date
+  //   return (
+  //     <div
+  //       key={field.name}
+  //       className={field.span === 3 ? "form-field-full" : "form-field"}
+  //     >
+  //       {label}
+  //       <input
+  //         id={id}
+  //         className={baseInputClass}
+  //         type={field.type === "number" ? "number" : field.type || "text"}
+  //         value={form[field.name] || ""}
+  //         onChange={(e) => handleChange(field.name, e.target.value)}
+  //         disabled={disabled}
+  //       />
+  //     </div>
+  //   );
+  // };
 
   const renderField = (field) => {
     const id = `${SECTION_KEY}_${field.name}`;
@@ -654,6 +830,7 @@ const onSubmit = async (e) => {
       </label>
     );
 
+    // ---------- TEXTAREA ----------
     if (field.type === "textarea") {
       return (
         <div
@@ -672,42 +849,48 @@ const onSubmit = async (e) => {
       );
     }
 
-    if (field.type === "select") {
-      const options = getOptionsForField(field);
-      return (
-        <div
-          key={field.name}
-          className={field.span === 3 ? "form-field-full" : "form-field"}
-        >
-          {label}
-          <select
-            id={id}
-            className={baseInputClass}
-            value={form[field.name] || ""}
-            onChange={(e) => handleChange(field.name, e.target.value)}
-            disabled={
-              disabled ||
-              (field.name !== "project_id" && !masters && loadingMasters)
-            }
-          >
-            <option value="">
-              {field.name === "project_id"
-                ? "Select project"
-                : loadingMasters
-                ? "Loading..."
-                : "Select"}
-            </option>
-            {options.map((opt) => (
-              <option key={String(opt.value)} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      );
-    }
+    // ---------- SELECT ----------
+if (field.type === "select") {
+  const options = getOptionsForField(field);
+  return (
+    <div
+      key={field.name}
+      className={field.span === 3 ? "form-field-full" : "form-field"}
+    >
+      {label}
+      <select
+        id={id}
+        className={baseInputClass}
+        value={form[field.name] || ""}
+        onChange={(e) => handleChange(field.name, e.target.value)}
+        disabled={
+          disabled ||
+          (field.name !== "project_id" && !masters && loadingMasters) ||
+          (field.name === "assign_to_id" && loadingCP)
+        }
+      >
+        <option value="">
+          {field.name === "project_id"
+            ? "Select project"
+            : field.name === "assign_to_id" && loadingCP
+            ? "Loading..."
+            : loadingMasters
+            ? "Loading..."
+            : "Select"}
+        </option>
 
-    // text / number / date
+        {options.map((opt) => (
+          <option key={String(opt.value)} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+
+    // ---------- TEXT / NUMBER / DATE ----------
     return (
       <div
         key={field.name}
