@@ -31,6 +31,7 @@ export const URLS = {
   projectBanks: "client/project-banks/",
   bankAllInOne: "client/bank-setup/create-all/",
 
+  channelPartnersBySource: "channel/channel-partners/by-source/",
   // notifications
   notifications: "client/notifications/",
   notifMarkRead: (id) => `client/notifications/${id}/mark_read/`,
