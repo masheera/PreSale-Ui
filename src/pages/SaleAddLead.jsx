@@ -553,17 +553,12 @@ const onSubmit = async (e) => {
     return;
   }
 
-  // Try to get project_lead id:
-  //  - if backend sends in masters (project_lead_id / project_lead.id)
-  //  - else fallback to project_id (agar id same rakhi hai)
-  const projectLeadId =
-    masters?.project_lead_id ||
-    masters?.project_lead?.id ||
-    normalized.project_id;
-
-  // ---- Map form -> SalesLeadSerializer fields ----
+  // ✅ Backend ab sirf `project` expect karta hai
   const leadPayload = {
-    project_lead: projectLeadId,
+    project: normalized.project_id, // 👈 IMPORTANT CHANGE
+
+    first_name: normalized.first_name || null,
+    last_name: normalized.last_name || null,
 
     email: normalized.email,
     mobile_number: normalized.mobile_number,
@@ -585,7 +580,6 @@ const onSubmit = async (e) => {
     current_owner: normalized.lead_owner_id || null,
     assign_to: normalized.assign_to_id || null,
 
-    // backend expects list for M2M
     offering_types:
       normalized.offering_type != null && normalized.offering_type !== ""
         ? [normalized.offering_type]
@@ -602,18 +596,14 @@ const onSubmit = async (e) => {
     },
   };
 
-  // Bundle body for /bundle-create/
   const body = {
     lead: leadPayload,
-    // optional – naam atleast kahi capture ho:
     first_update: {
       title: "Lead created",
       info: `${normalized.first_name || ""} ${
         normalized.last_name || ""
       }`.trim(),
     },
-    // first_stage chahiye toh yahan add kar sakte:
-    // first_stage: { stage: 1, status: 1, sub_status: null, notes: "New enquiry" }
   };
 
   try {
@@ -630,15 +620,11 @@ const onSubmit = async (e) => {
     console.error("Failed to save lead", err);
 
     let msg = "Failed to save lead. Please check the data.";
-
     const data = err?.response?.data;
     if (data) {
-      if (typeof data === "string") {
-        msg = data;
-      } else if (data.detail) {
-        msg = data.detail;
-      } else if (data.lead && typeof data.lead === "object") {
-        // nested serializer errors from `lead`
+      if (typeof data === "string") msg = data;
+      else if (data.detail) msg = data.detail;
+      else if (data.lead && typeof data.lead === "object") {
         const firstKey = Object.keys(data.lead)[0];
         const firstVal = data.lead[firstKey];
         msg = Array.isArray(firstVal) ? firstVal.join(" ") : String(firstVal);

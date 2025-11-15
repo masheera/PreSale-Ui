@@ -28,17 +28,21 @@ export default function SalesSubnav({
   ];
 
   const handleSecondaryClick = (key) => {
-    // bubble up first (so parent can set active state)
     onNavigate && onNavigate(key);
 
-    // built-in routes for a few keys (expand as you like)
     if (key === "master-setup") {
       navigate("/sales/projects");
+    }
+
+    if (key === "lead-sources") {
+      navigate("/Sale-Add-Lead");
     }
 
     if (key === "inventory") {
       navigate("/inventory/list");
     }
+
+    // /sales/leads
     // Example extras you can enable:
     // else if (key === "dashboard") navigate("/sales/dashboard");
     // else if (key === "inventory") navigate("/sales/inventory");

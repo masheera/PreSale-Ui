@@ -16,8 +16,8 @@ import {
 } from "../api/endpoints";
 
 export default function Setup() {
-   const [section, setSection] = useState("pre");
-   const [activeItem, setActiveItem] = useState("master-setup");
+  const [section, setSection] = useState("pre");
+  const [activeItem, setActiveItem] = useState("master-setup");
 
   const [openSections, setOpenSections] = useState({
     project: true,
@@ -93,6 +93,17 @@ export default function Setup() {
     return map;
   }, [projects]);
 
+  // Map towerId -> projectId (used for Floor Excel import)
+  const projectIdByTowerId = useMemo(() => {
+    const map = {};
+    projects.forEach((p) => {
+      (p.towers ?? []).forEach((t) => {
+        map[t.id] = p.id;
+      });
+    });
+    return map;
+  }, [projects]);
+
   /* -------------- PROJECT form -------------- */
   const [projectForm, setProjectForm] = useState({
     name: "",
@@ -156,6 +167,66 @@ export default function Setup() {
     }
   };
 
+  const handleProjectExcelClick = () => {
+    if (projectExcelUploading) return;
+    projectExcelInputRef.current?.click();
+  };
+
+  const handleProjectExcelChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // For staff we need admin_id
+    if (isStaff && !projectForm.admin_id && !adminIdForScope) {
+      alert(
+        "For staff import, please enter Admin ID either in Project form or in the 'Admin ID for scope' box."
+      );
+      e.target.value = "";
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append("file", file);
+    if (isStaff) {
+      fd.append("admin_id", projectForm.admin_id || adminIdForScope);
+    }
+
+    try {
+      setProjectExcelUploading(true);
+      const res = await axiosInstance.post(
+        "client/projects/upload-excel/",
+        fd,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      const data = res.data || {};
+      let msg = `Projects import done.
+Created: ${data.created_projects || 0}
+Updated: ${data.updated_projects || 0}`;
+      if (Array.isArray(data.errors) && data.errors.length) {
+        const first = data.errors[0];
+        msg += `\nSome rows had errors. Example (row ${
+          first.row
+        }): ${first.errors.join(", ")}`;
+      }
+      alert(msg);
+      await loadAll({
+        admin_id: isStaff ? projectForm.admin_id || adminIdForScope : undefined,
+      });
+    } catch (err) {
+      console.error(err);
+      const apiMsg =
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        JSON.stringify(err.response?.data) ||
+        "Failed to import projects from Excel.";
+      alert(apiMsg);
+    } finally {
+      setProjectExcelUploading(false);
+      e.target.value = "";
+    }
+  };
+
+
   /* -------------- TOWER form -------------- */
   const [towerForm, setTowerForm] = useState({
     project: "",
@@ -199,6 +270,64 @@ export default function Setup() {
     }
   };
 
+  const handleTowerExcelClick = () => {
+    if (towerExcelUploading) return;
+    if (!towerForm.project) {
+      alert(
+        "Please select the Project (in Tower Setup) for which you want to import towers."
+      );
+      return;
+    }
+    towerExcelInputRef.current?.click();
+  };
+
+  const handleTowerExcelChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const projectId = towerForm.project;
+    if (!projectId) {
+      alert("Project is required to import towers.");
+      e.target.value = "";
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("project_id", projectId);
+
+    try {
+      setTowerExcelUploading(true);
+      const res = await axiosInstance.post("client/towers/upload-excel/", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const data = res.data || {};
+      let msg = `Towers import done.
+Created: ${data.created_towers || 0}
+Updated: ${data.updated_towers || 0}`;
+      if (Array.isArray(data.errors) && data.errors.length) {
+        const first = data.errors[0];
+        msg += `\nSome rows had errors. Example (row ${
+          first.row
+        }): ${first.errors.join(", ")}`;
+      }
+      alert(msg);
+      await loadAll({ admin_id: isStaff ? adminIdForScope : undefined });
+    } catch (err) {
+      console.error(err);
+      const apiMsg =
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        JSON.stringify(err.response?.data) ||
+        "Failed to import towers from Excel.";
+      alert(apiMsg);
+    } finally {
+      setTowerExcelUploading(false);
+      e.target.value = "";
+    }
+  };
+
+
   /* -------------- FLOOR form (+document) -------------- */
   const [floorForm, setFloorForm] = useState({
     tower: "",
@@ -209,6 +338,18 @@ export default function Setup() {
   });
   const [floorDocFile, setFloorDocFile] = useState(null);
   const fileInputRef = useRef(null);
+  // Excel upload refs
+  const projectExcelInputRef = useRef(null);
+  const towerExcelInputRef = useRef(null);
+  const floorExcelInputRef = useRef(null);
+
+  const unitExcelInputRef = useRef(null);
+
+  // Excel upload loading flags
+  const [projectExcelUploading, setProjectExcelUploading] = useState(false);
+  const [towerExcelUploading, setTowerExcelUploading] = useState(false);
+  const [floorExcelUploading, setFloorExcelUploading] = useState(false);
+const [unitExcelUploading, setUnitExcelUploading] = useState(false);
 
   const handleAddFloor = async () => {
     try {
@@ -252,6 +393,68 @@ export default function Setup() {
       alert("Failed to create floor");
     }
   };
+
+  const handleFloorExcelClick = () => {
+    if (floorExcelUploading) return;
+    if (!floorForm.tower) {
+      alert(
+        "Please select any Tower (Floor Setup) for the project you want to import floors for."
+      );
+      return;
+    }
+    floorExcelInputRef.current?.click();
+  };
+
+  const handleFloorExcelChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const towerId = floorForm.tower;
+    const projectId = towerId ? projectIdByTowerId[Number(towerId)] : null;
+
+    if (!projectId) {
+      alert(
+        "Could not detect project for the selected tower. Please ensure the tower belongs to a project."
+      );
+      e.target.value = "";
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("project_id", projectId);
+
+    try {
+      setFloorExcelUploading(true);
+      const res = await axiosInstance.post("client/floors/upload-excel/", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const data = res.data || {};
+      let msg = `Floors import done.
+Created: ${data.created_floors || 0}
+Updated: ${data.updated_floors || 0}`;
+      if (Array.isArray(data.errors) && data.errors.length) {
+        const first = data.errors[0];
+        msg += `\nSome rows had errors. Example (row ${
+          first.row
+        }): ${first.errors.join(", ")}`;
+      }
+      alert(msg);
+      await loadAll({ admin_id: isStaff ? adminIdForScope : undefined });
+    } catch (err) {
+      console.error(err);
+      const apiMsg =
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        JSON.stringify(err.response?.data) ||
+        "Failed to import floors from Excel.";
+      alert(apiMsg);
+    } finally {
+      setFloorExcelUploading(false);
+      e.target.value = "";
+    }
+  };
+
 
   /* -------------- UNIT form -------------- */
   const [unitForm, setUnitForm] = useState({
@@ -333,6 +536,67 @@ export default function Setup() {
     } catch (e) {
       console.error(e);
       alert("Failed to create unit");
+    }
+  };
+
+
+  const handleUnitExcelClick = () => {
+    if (unitExcelUploading) return;
+    if (!unitForm.project) {
+      alert("Please select Project in Unit Setup before importing Excel.");
+      return;
+    }
+    unitExcelInputRef.current?.click();
+  };
+
+  const handleUnitExcelChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const projectId = unitForm.project;
+    if (!projectId) {
+      alert("Project is required to import units.");
+      e.target.value = "";
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("project_id", projectId);
+
+    try {
+      setUnitExcelUploading(true);
+      const res = await axiosInstance.post("client/units/upload-excel/", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const data = res.data || {};
+      let msg = `Units import done.
+Created: ${data.created_units || 0}
+Updated: ${data.updated_units || 0}`;
+
+      if (Array.isArray(data.errors) && data.errors.length) {
+        const first = data.errors[0];
+        msg += `\nSome rows had errors. Example (row ${
+          first.row
+        }): ${first.errors.join(", ")}`;
+      }
+
+      alert(msg);
+
+      // reload tree so project/tower/floor/unit lists get updated
+      await loadAll({ admin_id: isStaff ? adminIdForScope : undefined });
+    } catch (err) {
+      console.error(err);
+      const apiMsg =
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        JSON.stringify(err.response?.data) ||
+        "Failed to import units from Excel.";
+      alert(apiMsg);
+    } finally {
+      setUnitExcelUploading(false);
+      e.target.value = "";
     }
   };
 
@@ -726,22 +990,46 @@ export default function Setup() {
             <div className="section-content">
               <div className="content-header">
                 <h3 className="content-title">Add Projects</h3>
-                <button className="import-btn">
-                  <svg
-                    className="btn-icon"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                <div className="header-actions">
+                  <a
+                    href="/api/client/projects/sample-excel/"
+                    className="sample-link"
+                    target="_blank"
+                    rel="noreferrer"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    />
-                  </svg>
-                  IMPORT EXCEL
-                </button>
+                    Download Sample
+                  </a>
+
+                  <button
+                    type="button"
+                    className="import-btn"
+                    onClick={handleProjectExcelClick}
+                    disabled={projectExcelUploading}
+                  >
+                    <svg
+                      className="btn-icon"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    {projectExcelUploading ? "IMPORTING..." : "IMPORT EXCEL"}
+                  </button>
+
+                  <input
+                    ref={projectExcelInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    style={{ display: "none" }}
+                    onChange={handleProjectExcelChange}
+                  />
+                </div>
               </div>
 
               <div className="form-row">
@@ -989,22 +1277,46 @@ export default function Setup() {
             <div className="section-content">
               <div className="content-header">
                 <h3 className="content-title">Add Tower</h3>
-                <button className="import-btn">
-                  <svg
-                    className="btn-icon"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                <div className="header-actions">
+                  <a
+                    href="/api/client/towers/sample-excel/"
+                    className="sample-link"
+                    target="_blank"
+                    rel="noreferrer"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    />
-                  </svg>
-                  IMPORT EXCEL
-                </button>
+                    Download Sample
+                  </a>
+
+                  <button
+                    type="button"
+                    className="import-btn"
+                    onClick={handleTowerExcelClick}
+                    disabled={towerExcelUploading}
+                  >
+                    <svg
+                      className="btn-icon"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    {towerExcelUploading ? "IMPORTING..." : "IMPORT EXCEL"}
+                  </button>
+
+                  <input
+                    ref={towerExcelInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    style={{ display: "none" }}
+                    onChange={handleTowerExcelChange}
+                  />
+                </div>
               </div>
 
               <div className="form-row">
@@ -1155,7 +1467,52 @@ export default function Setup() {
             <div className="section-content">
               <div className="content-header">
                 <h3 className="content-title">Add Floor</h3>
-                <button className="import-btn">
+                <div className="header-actions">
+                  <a
+                    href="/api/client/floors/sample-excel/"
+                    className="sample-link"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Download Sample
+                  </a>
+
+                  <button
+                    type="button"
+                    className="import-btn"
+                    onClick={handleFloorExcelClick}
+                    disabled={floorExcelUploading}
+                  >
+                    <svg
+                      className="btn-icon"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    {floorExcelUploading ? "IMPORTING..." : "IMPORT EXCEL"}
+                  </button>
+
+                  <input
+                    ref={floorExcelInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    style={{ display: "none" }}
+                    onChange={handleFloorExcelChange}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="import-btn"
+                  onClick={handleFloorExcelClick}
+                  disabled={floorExcelUploading}
+                >
                   <svg
                     className="btn-icon"
                     fill="none"
@@ -1169,8 +1526,15 @@ export default function Setup() {
                       d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                     />
                   </svg>
-                  IMPORT EXCEL
+                  {floorExcelUploading ? "IMPORTING..." : "IMPORT EXCEL"}
                 </button>
+                <input
+                  type="file"
+                  ref={floorExcelInputRef}
+                  accept=".xlsx,.xls"
+                  style={{ display: "none" }}
+                  onChange={handleFloorExcelChange}
+                />
               </div>
 
               <div className="form-row">
@@ -1339,7 +1703,52 @@ export default function Setup() {
             <div className="section-content">
               <div className="content-header">
                 <h3 className="content-title">Add Unit</h3>
-                <button className="import-btn">
+                <div className="header-actions">
+                  <a
+                    href="/api/client/units/sample-excel/"
+                    className="sample-link"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Download Sample
+                  </a>
+
+                  <button
+                    type="button"
+                    className="import-btn"
+                    onClick={handleUnitExcelClick}
+                    disabled={unitExcelUploading}
+                  >
+                    <svg
+                      className="btn-icon"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    {unitExcelUploading ? "IMPORTING..." : "IMPORT EXCEL"}
+                  </button>
+
+                  <input
+                    ref={unitExcelInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    style={{ display: "none" }}
+                    onChange={handleUnitExcelChange}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="import-btn"
+                  onClick={handleUnitExcelClick}
+                  disabled={unitExcelUploading}
+                >
                   <svg
                     className="btn-icon"
                     fill="none"
@@ -1353,8 +1762,16 @@ export default function Setup() {
                       d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                     />
                   </svg>
-                  IMPORT EXCEL
+                  {unitExcelUploading ? "IMPORTING..." : "IMPORT EXCEL"}
                 </button>
+
+                <input
+                  type="file"
+                  ref={unitExcelInputRef}
+                  accept=".xlsx,.xls"
+                  style={{ display: "none" }}
+                  onChange={handleUnitExcelChange}
+                />
               </div>
 
               <div className="form-row">
@@ -2574,3 +2991,4 @@ export default function Setup() {
     </div>
   );
 }
+

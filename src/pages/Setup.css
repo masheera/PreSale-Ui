@@ -581,3 +581,22 @@
 button {
   font-family: inherit;
 }
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sample-link {
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  color: #0b5ed7; /* tweak to your theme */
+}
+
+.sample-link:hover {
+  text-decoration: none;
+}
+
+s

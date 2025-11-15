@@ -175,7 +175,17 @@ export default function SalesLeadsList() {
                       <button title="Delete" className="icon-btn">
                         🗑️
                       </button>
-                      <button title="View" className="icon-btn">
+                      <button
+                        title="View"
+                        className="icon-btn"
+                        onClick={() =>
+                          navigate(
+                            `/Lead-static-Lead?lead_id=${encodeURIComponent(
+                              lead.id
+                            )}`
+                          )
+                        }
+                      >
                         👁️
                       </button>
                     </td>

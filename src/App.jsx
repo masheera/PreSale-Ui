@@ -11,12 +11,14 @@ import Login from "./pages/Login";
 import LeadStaticPage from "./pages/LeadStaticPage";
 import InventoryCreate from "./pages/InventoryCreate";
 import InventoryList from "./pages/InventoryList";
+import ChannelPartnerRegistration from "./pages/ChannelPartnerRegistration";
+import InventoryPlanning from "./pages/InventoryPlanning";
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Toaster position="top-right" />
-
+        
         <Routes>
           <Route path="/login" element={<Login />} />
 
@@ -29,10 +31,17 @@ export default function App() {
               <Route path="/sales/leads" element={<SalesLeadsList />} />
               <Route path="/Sale-Add-Lead" element={<SaleAddLead />} />
               <Route path="/Lead-static-Lead" element={<LeadStaticPage />} />
+              <Route path="/inventory-planning"element={<InventoryPlanning />} />
 
               {/* Admin View */}
               <Route path="/inventory/new" element={<InventoryCreate />} />
               <Route path="/inventory/list" element={<InventoryList />} />
+
+              {/* Channel Register */}
+              <Route
+                path="/Channel/Add"
+                element={<ChannelPartnerRegistration />}
+              />
 
               <Route
                 path="*"

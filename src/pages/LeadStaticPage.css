@@ -22,6 +22,55 @@
   flex: 1;
 }
 
+
+/* Generic modal overlay for stage + document popups */
+.modal-backdrop {
+  position: fixed;
+  inset: 0; /* top:0; right:0; bottom:0; left:0; */
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999; /* upar sab ke */
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 20px 24px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+
+.modal-title {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.modal-body {
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Optional: stages style tweak */
+.stage-item.stage-done .stage-dot {
+  opacity: 1;
+}
+
+.stage-item.stage-pending .stage-dot,
+.stage-item.stage-pending .stage-label {
+  opacity: 0.5;
+}
+
+
 .lead-title {
   text-align: center;
   font-weight: 600;
