@@ -21,7 +21,10 @@ export const URLS = {
   paymentSlabs: "client/payment-slabs/",
   milestonePlans: "client/milestone-plans/",
   milestoneSlabs: "client/milestone-slabs/",
-
+  leadList: "leadManagement/v2/leads/",
+  salesLeads: "sales/sales-leads/",
+  salesLeadBundleCreate: "sales/sales-leads/bundle-create/", // POST bundle
+  inventoryBulk: "client/inventory/bulk-create/",
   // bank
   banks: "client/banks/",
   bankBranches: "client/bank-branches/",
@@ -59,6 +62,17 @@ export const AuthAPI = {
     api.post(URLS.login, { username, password }).then((r) => r.data),
 };
 
+
+export const InventoryAPI = {
+  bulkCreate: (formData) =>
+    api
+      .post(URLS.inventoryBulk, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((r) => r.data),
+};
+
+
 export const SetupAPI = {
   getBundle: () => api.get(URLS.setupBundle).then((r) => r.data),
 
@@ -72,6 +86,12 @@ export const SetupAPI = {
       .get(URLS.projectTree, { params: { project_id, include_units } })
       .then((r) => r.data),
 };
+
+
+// export const LeadAPI = {
+//   list: (params = {}) =>
+//     api.get(URLS.salesLeads, { params }).then((r) => r.data),
+// };
 
 export const ProjectAPI = {
   create: (payload) => api.post(URLS.projects, payload).then((r) => r.data),
